@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>停车场充能智能调度系统 · 演示原型</title>
+<style>
+  :root{
+    --bg:#0b1220; --panel:#131d31; --panel2:#0f1728; --line:#25334d;
+    --txt:#e8eefb; --muted:#8ea2bf; --accent:#2ee66b; --warn:#ff6b6b; --gold:#ffb703;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:linear-gradient(180deg,#0b1220,#0a0f1b 60%);color:var(--txt);
+       font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;font-size:14px}
+  header{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:19px;margin:0;font-weight:650;letter-spacing:.02em}
+  header .tag{color:var(--accent);font-size:12px;border:1px solid #1d5b38;background:#0f2a1c;
+              padding:2px 9px;border-radius:999px}
+  header .sub{color:var(--muted);font-size:12px}
+  .layout{display:grid;grid-template-columns:308px 1fr;gap:16px;padding:16px 26px 40px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+  .card+.card{margin-top:16px}
+  .card h2{font-size:12px;margin:0 0 14px;color:var(--muted);font-weight:600;letter-spacing:.09em;text-transform:uppercase}
+  .row{margin-bottom:13px}
+  .rowhead{display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:5px}
+  .rowhead b{color:var(--accent);font-weight:600;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:#243149;
+                    border-radius:3px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+                    background:var(--accent);cursor:pointer;border:2px solid #0b1220}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--accent);
+                    cursor:pointer;border:2px solid #0b1220}
+  select,button{width:100%;font-family:inherit;font-size:13px;border-radius:8px;padding:9px 10px;
+                background:var(--panel2);color:var(--txt);border:1px solid var(--line)}
+  button{cursor:pointer;background:linear-gradient(180deg,#1f9c53,#178244);border:none;font-weight:600;
+         letter-spacing:.03em;margin-top:6px}
+  button:hover{filter:brightness(1.1)}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.75}
+  .note b{color:#b9c8e0;font-weight:600}
+  .btnsec button{background:var(--panel2);border:1px solid var(--line);font-weight:500;font-size:12.5px}
+  .btnsec button:hover{border-color:var(--accent);filter:none}
+  .status{font-size:11.5px;color:var(--muted);line-height:1.7;margin-top:10px}
+  .status.ok{color:var(--accent)}
+  table.kpi{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+  table.kpi th,table.kpi td{padding:9px 10px;text-align:right;border-bottom:1px solid #1c2740}
+  table.kpi th:first-child,table.kpi td:first-child{text-align:left;color:var(--muted);font-weight:400}
+  table.kpi thead th{font-size:12px;color:#a9bcd8;font-weight:600;border-bottom:1px solid var(--line)}
+  table.kpi thead th small{display:block;font-size:10.5px;color:var(--muted);font-weight:400;margin-top:2px}
+  td.best{color:var(--accent);font-weight:700}
+  td.bad{color:var(--warn)}
+  .collab{position:relative;border-radius:8px}
+  .collab.rec{background:linear-gradient(180deg,rgba(46,230,107,.11),rgba(46,230,107,0))}
+  .badge{display:inline-block;font-size:10px;background:var(--accent);color:#06210f;border-radius:999px;
+         padding:1px 7px;margin-left:6px;font-weight:700;vertical-align:1px}
+  #chart{height:392px;width:100%}
+  .verdict{margin-top:12px;padding:13px 15px;border-radius:9px;background:#0e2a1b;border:1px solid #1d5b38;
+           line-height:1.95;font-size:13.5px}
+  .verdict b{color:var(--accent)}
+  .playbar{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+  .playbar button{width:104px;margin:0;flex:none}
+  .playbar input[type=range]{flex:1}
+  .clock{font-variant-numeric:tabular-nums;font-size:17px;font-weight:650;width:62px;text-align:center;
+         color:var(--gold)}
+  .stalls{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0 12px}
+  .stall{width:30px;height:30px;border-radius:6px;background:#1a2740;color:#5f7a9e;
+         font-size:10.5px;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums;
+         transition:background .1s,color .1s}
+  .stall.on{background:#1f9c53;color:#eafff2;box-shadow:0 0 10px rgba(46,230,107,.35)}
+  .live{font-size:12.5px;color:var(--muted);line-height:2}
+  .live b{color:var(--txt);font-variant-numeric:tabular-nums}
+  .err{color:var(--warn);padding:20px;line-height:1.9;font-size:13px}
+  @media(max-width:960px){.layout{grid-template-columns:1fr}aside .card{position:static}}
+</style>
+</head>
+<body>
+<header>
+  <h1>停车场充能智能调度系统</h1>
+  <span class="tag">AI for Green · A赛道</span>
+  <span class="sub">场景：办公楼停车场 · 16 个交流桩（11 kW）· 100 kW 变压器 · 100 kWp 屋顶光伏</span>
+</header>
+
+<div class="layout">
+  <aside>
+    <div class="card">
+      <h2>场景配置</h2>
+      <div id="params"></div>
+      <div class="row">
+        <div class="rowhead"><span>目标偏好</span></div>
+        <select id="pref">
+          <option value="green">绿色优先（最减碳）</option>
+          <option value="cheap">经济优先（最省钱）</option>
+          <option value="balanced">成本与碳排平衡</option>
+        </select>
+      </div>
+      <button id="runBtn">重新计算方案</button>
+    </div>
+    <div class="card btnsec">
+      <h2>数据导入 / 导出</h2>
+      <button id="tplBtn">下载数据模板 (CSV)</button>
+      <button id="impBtn">导入赛题数据 (CSV)</button>
+      <button id="clearImpBtn" style="display:none">恢复内置生成数据</button>
+      <div class="status" id="impStatus"></div>
+      <h2 style="margin-top:18px">导出结果</h2>
+      <button id="expPlan">导出调度方案 (CSV)</button>
+      <button id="expKpi">导出指标汇总 (CSV)</button>
+      <button id="expCurve">导出逐时段曲线 (CSV)</button>
+      <input type="file" id="fileInput" accept=".csv,.txt" style="display:none">
+    </div>
+    <div class="card">
+      <h2>模型假设</h2>
+      <div class="note">
+        <b>分时电价</b>（元/kWh）：谷 0.35（21–8）· 峰 1.05（8–11、17–21）· 尖峰 1.25（11–13）· 平 0.65（13–17、21–24）<br>
+        <b>电网碳强度</b>（kgCO₂/kWh）：夜间 0.80 · 午间光伏大发 0.35 · 傍晚 0.55–0.70<br>
+        <b>车辆</b>：75% 通勤车（8–10 点到、17–19 点走）+ 25% 短停访客车<br><br>
+        赛题公布后，把这里的电价与碳强度换成官方数据即可。
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="card">
+      <h2>方案对比</h2>
+      <table class="kpi" id="kpiTable"></table>
+      <div class="verdict" id="verdict"></div>
+    </div>
+
+    <div class="card">
+      <h2>24 小时负荷与能源曲线</h2>
+      <div id="chart"></div>
+    </div>
+
+    <div class="card">
+      <h2>时间回放</h2>
+      <div class="playbar">
+        <button id="playBtn">▶ 播放</button>
+        <input type="range" id="timeSlider" min="0" max="95" value="47" step="1">
+        <span class="clock" id="clock">00:00</span>
+        <select id="viewMode" style="width:150px">
+          <option value="green">查看：绿色优先</option>
+          <option value="cheap">查看：经济优先</option>
+          <option value="base">查看：即插即充基线</option>
+        </select>
+      </div>
+      <div class="stalls" id="stalls"></div>
+      <div class="live" id="live"></div>
+    </div>
+  </main>
+</div>
+
+<script src="./echarts.min.js"></script>
+<script>
+/* ==================================================================
+   停车场充能智能调度 · 演示原型
+   ------------------------------------------------------------------
+   三个方案：
+     base  = 即插即充（无调度基线，车主插上就满功率充）
+     cheap = 策略A  分时电价优化（传统有序充电做法，只看电价）
+     green = 策略B  碳强度 + 光伏协同优化（本方案）
+   算法：按"时段吸引力"从高到低填充容量，每个时段内按车辆紧迫度
+        （剩余需求 / 剩余可充电量）排序分配，兼顾效率与公平。
+   ================================================================== */
+
+const SLOTS = 96, DT = 0.25;                       // 15 分钟一个时段
+const times = Array.from({length:SLOTS},(_,s)=>{
+  const h = Math.floor(s/4), m = (s%4)*15;
+  return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+});
+
+const cfg = {
+  nCars:40, nStalls:16, stallPower:11, transformer:100, pvPeak:100, needAvg:16,
+  seed:20261031, pref:'green'
+};
+
+const PARAMS = [
+  {k:'nCars',       label:'需要充电的车辆数',  min:10, max:100, step:5,  unit:' 辆'},
+  {k:'nStalls',     label:'充电桩数量',        min:2,  max:40,  step:1,  unit:' 个'},
+  {k:'stallPower',  label:'单桩额定功率',      min:3,  max:22,  step:1,  unit:' kW'},
+  {k:'transformer', label:'变压器容量上限',    min:40, max:250, step:10, unit:' kW'},
+  {k:'pvPeak',      label:'光伏装机容量',      min:0,  max:200, step:10, unit:' kWp'},
+  {k:'needAvg',     label:'单车平均充电需求',  min:8,  max:35,  step:1,  unit:' kWh'}
+];
+
+/* ---------------- 能源模型 ---------------- */
+function priceAt(h){
+  if (h < 8)  return 0.35;
+  if (h < 11) return 1.05;
+  if (h < 13) return 1.25;
+  if (h < 17) return 0.65;
+  if (h < 21) return 1.05;
+  return 0.65;
+}
+function carbonAt(h){
+  if (h < 7)  return 0.80;
+  if (h < 11) return 0.65;
+  if (h < 15) return 0.35;
+  if (h < 18) return 0.55;
+  if (h < 21) return 0.70;
+  return 0.75;
+}
+function pvAt(h){
+  if (h < 6.5 || h > 18.5) return 0;
+  const x = (h - 6.5) / 12;
+  return cfg.pvPeak * Math.pow(Math.sin(Math.PI * x), 1.6);
+}
+
+/* ---------------- 随机数与车辆生成 ---------------- */
+function mulberry32(a){
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function makeGauss(rnd){
+  return function(){
+    let u = 0, v = 0;
+    while (u === 0) u = rnd();
+    while (v === 0) v = rnd();
+    return Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+  };
+}
+const clamp = (x,a,b)=> Math.max(a, Math.min(b,x));
+
+function genCars(){
+  const rnd = mulberry32(cfg.seed);
+  const gauss = makeGauss(rnd);
+  const cars = [];
+  const nShort = Math.round(cfg.nCars * 0.25);
+  const nLong  = cfg.nCars - nShort;
+
+  for (let i=0;i<nLong;i++){                                     // 通勤车
+    const arrH = clamp(8.5 + gauss()*0.75, 6.5, 11.5);
+    const depH = clamp(17.5 + gauss()*0.9, 15.5, 21.0);
+    cars.push({kind:'long', arrH, depH});
+  }
+  for (let i=0;i<nShort;i++){                                    // 短停访客车
+    const arrH = 8 + rnd()*12;
+    const depH = clamp(arrH + 1 + rnd()*3.5, arrH + 0.75, 23);
+    cars.push({kind:'short', arrH, depH});
+  }
+  cars.forEach((c,i)=>{
+    c.id  = i;
+    c.arr = Math.floor(c.arrH*4);
+    c.dep = Math.max(c.arr+2, Math.ceil(c.depH*4));
+    let need = clamp(cfg.needAvg + gauss()*7, 4, 45);
+    const maxChargeable = (c.dep - c.arr) * DT * cfg.stallPower;
+    if (need > maxChargeable) need = maxChargeable * 0.9;
+    c.need = Math.round(need*10)/10;
+  });
+  return cars;
+}
+
+/* ---------------- 调度仿真 ---------------- */
+function simulate(mode, cars){
+  const work = cars.map(c => ({id:c.id, arr:c.arr, dep:c.dep, need:c.need, rem:c.need}));
+  const load = new Array(SLOTS).fill(0);
+  const assign = Array.from({length:SLOTS},()=>[]);
+
+  let cap = cfg.nStalls * cfg.stallPower;
+  if (mode !== 'base') cap = Math.min(cap, cfg.transformer);
+
+  function distribute(s, present){
+    present.sort((a,b)=> (b.urg - a.urg) || (a.id - b.id));
+    let budget = cap, stalls = cfg.nStalls;
+    for (const c of present){
+      if (budget <= 1e-6 || stalls <= 0) break;
+      const want = Math.min(cfg.stallPower, c.rem/DT);
+      const give = Math.min(want, budget);
+      if (give <= 1e-6) continue;
+      c.rem = Math.max(0, c.rem - give*DT);
+      load[s] += give;
+      assign[s].push(c.id);
+      budget -= give;
+      stalls -= 1;
+    }
+  }
+
+  if (mode === 'base'){
+    for (let s=0;s<SLOTS;s++){
+      const present = work.filter(c => c.arr<=s && s<c.dep && c.rem>1e-6);
+      if (!present.length) continue;
+      present.forEach(c => { c.urg = -c.arr; });          // 先到先服务
+      distribute(s, present);
+    }
+  } else {
+    const slotList = [];
+    for (let s=0;s<SLOTS;s++){
+      const h = s/4;
+      slotList.push({s, sc: mode==='cheap' ? -priceAt(h) : -carbonAt(h)});
+    }
+    slotList.sort((a,b)=> (b.sc - a.sc) || (a.s - b.s));   // 从最优时段开始填充
+    for (const item of slotList){
+      const s = item.s;
+      const present = work.filter(c => c.arr<=s && s<c.dep && c.rem>1e-6);
+      if (!present.length) continue;
+      present.forEach(c => {
+        const avail = (c.dep - s) * cfg.stallPower * DT;
+        c.urg = avail <= 1e-9 ? 1e9 : c.rem / avail;       // 越紧越优先
+      });
+      distribute(s, present);
+    }
+  }
+  return {load, work, assign};
+}
+
+/* ---------------- 指标计算 ---------------- */
+function evaluate(sim){
+  let cost=0, carbon=0, pvGen=0, pvUsed=0, peak=0, over=0;
+  for (let s=0;s<SLOTS;s++){
+    const h = s/4, pv = pvAt(h), l = sim.load[s];
+    pvGen  += pv * DT;
+    pvUsed += Math.min(l, pv) * DT;
+    const grid = Math.max(0, l - pv);
+    cost   += grid * DT * priceAt(h);
+    carbon += grid * DT * carbonAt(h);
+    if (l > peak) peak = l;
+    if (l > cfg.transformer) over += DT;
+  }
+  let unmetCars = 0, unmetKwh = 0;
+  sim.work.forEach(c => { if (c.rem > 0.5){ unmetCars++; unmetKwh += c.rem; } });
+  const energy = sim.load.reduce((a,b)=> a + b*DT, 0);
+  return {
+    cost, carbon, peak, over, unmetCars, unmetKwh, energy,
+    pvRate: pvGen > 0 ? 100 * pvUsed / pvGen : 0
+  };
+}
+
+/* ---------------- 界面 ---------------- */
+const state = { cars:[], res:{}, met:{}, customCars:null, impNote:'' };
+let chart = null, playTimer = null;
+
+function buildPanel(){
+  const box = document.getElementById('params');
+  box.innerHTML = '';
+  PARAMS.forEach(p=>{
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML =
+      '<div class="rowhead"><span>' + p.label + '</span><b id="v_' + p.k + '">' +
+      cfg[p.k] + p.unit + '</b></div>';
+    const inp = document.createElement('input');
+    inp.type = 'range'; inp.min = p.min; inp.max = p.max; inp.step = p.step; inp.value = cfg[p.k];
+    inp.addEventListener('input', ()=>{
+      cfg[p.k] = Number(inp.value);
+      document.getElementById('v_'+p.k).textContent = cfg[p.k] + p.unit;
+    });
+    inp.addEventListener('change', run);
+    row.appendChild(inp);
+    box.appendChild(row);
+  });
+}
+
+function fmt(x, d){ return Number(x).toFixed(d===undefined?0:d); }
+
+const LABEL  = {base:'即插即充基线', cheap:'策略A · 电价优化', green:'策略B · 碳光协同'};
+const SUBLBL = {base:'无调度', cheap:'传统有序充电', green:'本方案'};
+
+function recommend(){
+  if (cfg.pref === 'cheap') return 'cheap';
+  if (cfg.pref === 'green') return 'green';
+  const b = state.met.base;
+  const sC = state.met.cheap.cost/b.cost + state.met.cheap.carbon/b.carbon;
+  const sG = state.met.green.cost/b.cost + state.met.green.carbon/b.carbon;
+  return sG <= sC ? 'green' : 'cheap';
+}
+
+function renderKPI(){
+  const m = state.met, rec = recommend();
+  const rows = [
+    ['变压器峰值负荷 (kW)', m.base.peak, m.cheap.peak, m.green.peak, 'low', 0],
+    ['总电费 (元)',         m.base.cost, m.cheap.cost, m.green.cost, 'low', 1],
+    ['碳排放 (kgCO₂)',      m.base.carbon, m.cheap.carbon, m.green.carbon, 'low', 1],
+    ['光伏就地消纳率 (%)',  m.base.pvRate, m.cheap.pvRate, m.green.pvRate, 'high', 1],
+    ['变压器过载时长 (h)',  m.base.over, m.cheap.over, m.green.over, 'low', 2],
+    ['未充满车辆 (辆)',     m.base.unmetCars, m.cheap.unmetCars, m.green.unmetCars, 'low', 0]
+  ];
+  const keys = ['base','cheap','green'];
+  let html = '<thead><tr><th>指标</th>';
+  keys.forEach(k=>{
+    html += '<th class="collab' + (k===rec?' rec':'') + '">' + LABEL[k] +
+            (k===rec ? '<span class="badge">推荐</span>' : '') +
+            '<small>' + SUBLBL[k] + '</small></th>';
+  });
+  html += '</tr></thead><tbody>';
+  rows.forEach(r=>{
+    const vals = [r[1], r[2], r[3]];
+    const best = r[4]==='low' ? Math.min(...vals) : Math.max(...vals);
+    html += '<tr><td>' + r[0] + '</td>';
+    vals.forEach(v=>{
+      const isBest = Math.abs(v - best) < 1e-6;
+      const cls = isBest ? 'best' : (r[0].indexOf('过载')>=0 && v > 0 ? 'bad' : '');
+      html += '<td class="' + cls + '">' + fmt(v, r[5]) + '</td>';
+    });
+    html += '</tr>';
+  });
+  document.getElementById('kpiTable').innerHTML = html + '</tbody>';
+
+  const b = m.base, g = m[rec];
+  const drop = (a,c)=> a > 0 ? Math.round((1 - c/a) * 100) : 0;
+  document.getElementById('verdict').innerHTML =
+    '在「' + document.getElementById('pref').selectedOptions[0].text + '」目标下，推荐采用 <b>' + LABEL[rec] + '</b>。' +
+    '相比即插即充基线：变压器峰值负荷从 <b>' + fmt(b.peak) + ' kW</b> 降到 <b>' + fmt(g.peak) + ' kW</b>' +
+    '（−' + drop(b.peak, g.peak) + '%），电费从 <b>' + fmt(b.cost,1) + ' 元</b> 降到 <b>' + fmt(g.cost,1) + ' 元</b>' +
+    '（−' + drop(b.cost, g.cost) + '%），碳排放从 <b>' + fmt(b.carbon,1) + ' kg</b> 降到 <b>' + fmt(g.carbon,1) + ' kg</b>' +
+    '（−' + drop(b.carbon, g.carbon) + '%），光伏就地消纳率从 <b>' + fmt(b.pvRate) + '%</b> 提升到 <b>' + fmt(g.pvRate) + '%</b>' +
+    '，变压器过载时长由 <b>' + fmt(b.over,2) + ' 小时</b> 降为 <b>' + fmt(g.over,2) + ' 小时</b>' +
+    '，未充满车辆 <b>' + g.unmetCars + ' 辆</b>。';
+}
+
+function lineSeries(id, name, data, color, extra){
+  return Object.assign({
+    id: id, name: name, type: 'line', data: data, showSymbol: false, smooth: false,
+    lineStyle: {width: 2.2, color: color}, itemStyle: {color: color}, emphasis: {focus:'series'}
+  }, extra || {});
+}
+
+function renderChart(){
+  if (!window.echarts) return;                 // 图表库缺失时跳过，页面其余部分照常工作
+  const el = document.getElementById('chart');
+  if (!chart){ chart = echarts.init(el, null, {renderer:'canvas'}); }
+  const pvArr = times.map((_,s)=> +pvAt(s/4).toFixed(1));
+  const prArr = times.map((_,s)=> priceAt(s/4));
+
+  chart.setOption({
+    backgroundColor: 'transparent',
+    animation: false,
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: '#0f1728', borderColor: '#25334d',
+      textStyle: {color:'#e8eefb', fontSize:12}
+    },
+    legend: {
+      top: 0, textStyle: {color:'#8ea2bf', fontSize:11.5}, itemWidth:16, itemHeight:8,
+      data: ['即插即充基线','策略A · 电价优化','策略B · 碳光协同','变压器容量','光伏出力','电价']
+    },
+    grid: {left: 58, right: 62, top: 42, bottom: 34},
+    xAxis: {
+      type: 'category', data: times, boundaryGap: false,
+      axisLine: {lineStyle:{color:'#25334d'}}, axisLabel: {color:'#8ea2bf', fontSize:11, interval:7},
+      splitLine: {show:false}
+    },
+    yAxis: [
+      {type:'value', name:'功率 (kW)', nameTextStyle:{color:'#8ea2bf', fontSize:11},
+       axisLabel:{color:'#8ea2bf', fontSize:11}, splitLine:{lineStyle:{color:'#1a2338'}}},
+      {type:'value', name:'电价 (元/kWh)', max:1.5, nameTextStyle:{color:'#8ea2bf', fontSize:11},
+       axisLabel:{color:'#8ea2bf', fontSize:11}, splitLine:{show:false}}
+    ],
+    series: [
+      lineSeries('pv','光伏出力', pvArr, '#21d4a8',
+        {areaStyle:{color:'rgba(33,212,168,.13)'}, z:1}),
+      lineSeries('cap','变压器容量', new Array(SLOTS).fill(cfg.transformer), '#9aa7bd',
+        {lineStyle:{width:1.6, type:'dashed', color:'#9aa7bd'}, z:2}),
+      lineSeries('base','即插即充基线', state.res.base.load.map(v=>+v.toFixed(1)), '#ff6b6b', {z:4}),
+      lineSeries('cheap','策略A · 电价优化', state.res.cheap.load.map(v=>+v.toFixed(1)), '#ffb703', {z:5}),
+      lineSeries('green','策略B · 碳光协同', state.res.green.load.map(v=>+v.toFixed(1)), '#2ee66b',
+        {lineStyle:{width:2.6, color:'#2ee66b'}, z:6,
+         markLine:{silent:true, symbol:'none', label:{show:false},
+           lineStyle:{color:'#ffffff', width:1, opacity:.45},
+           data:[{xAxis: times[Number(document.getElementById('timeSlider').value)]}]}}),
+      lineSeries('price','电价', prArr, '#8b7cf6',
+        {yAxisIndex:1, lineStyle:{width:1.4, type:'dotted', color:'#8b7cf6'}, z:3})
+    ]
+  }, true);
+}
+
+function renderStalls(idx){
+  const mode = document.getElementById('viewMode').value;
+  const busy = (state.res[mode].assign[idx] || []).length;
+  const g = document.getElementById('stalls');
+  let html = '';
+  for (let i=0;i<cfg.nStalls;i++){
+    html += '<div class="stall' + (i < busy ? ' on' : '') + '">' + (i+1) + '</div>';
+  }
+  g.innerHTML = html;
+
+  const load = state.res[mode].load[idx];
+  const pv = pvAt(idx/4);
+  document.getElementById('live').innerHTML =
+    '当前时刻 <b>' + times[idx] + '</b> · 充电中 <b>' + busy + '</b> 辆 · ' +
+    '充电负荷 <b>' + fmt(load,1) + '</b> kW · 光伏出力 <b>' + fmt(pv,1) + '</b> kW · ' +
+    '净购电 <b>' + fmt(Math.max(0, load-pv),1) + '</b> kW · ' +
+    '电价 <b>' + fmt(priceAt(idx/4),2) + '</b> 元/kWh · ' +
+    '电网碳强度 <b>' + fmt(carbonAt(idx/4),2) + '</b> kgCO₂/kWh';
+}
+
+function onTime(idx){
+  document.getElementById('clock').textContent = times[idx];
+  renderStalls(idx);
+  if (chart){
+    chart.setOption({series:[{id:'green', markLine:{data:[{xAxis: times[idx]}]}}]});
+  }
+}
+
+function togglePlay(){
+  const btn = document.getElementById('playBtn');
+  const slider = document.getElementById('timeSlider');
+  if (playTimer){
+    clearInterval(playTimer); playTimer = null; btn.textContent = '▶ 播放'; return;
+  }
+  btn.textContent = '⏸ 暂停';
+  if (Number(slider.value) >= SLOTS-1) slider.value = 0;
+  playTimer = setInterval(()=>{
+    let v = Number(slider.value) + 1;
+    if (v >= SLOTS){
+      v = 0;
+      clearInterval(playTimer); playTimer = null;
+      document.getElementById('playBtn').textContent = '▶ 播放';
+    }
+    slider.value = v;
+    onTime(v);
+  }, 110);
+}
+
+/* ---------------- 数据导入 ---------------- */
+function parseCSV(text){
+  const rows = [];
+  let row = [], cell = '', inQ = false;
+  for (let i=0;i<text.length;i++){
+    const ch = text[i];
+    if (inQ){
+      if (ch === '"'){
+        if (text[i+1] === '"'){ cell += '"'; i++; } else { inQ = false; }
+      } else { cell += ch; }
+    } else if (ch === '"'){ inQ = true; }
+    else if (ch === ','){ row.push(cell); cell = ''; }
+    else if (ch === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; }
+    else if (ch !== '\r'){ cell += ch; }
+  }
+  if (cell.length || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(function(r){ return r.some(function(c){ return String(c).trim() !== ''; }); });
+}
+
+function parseTime(v){
+  if (v === undefined || v === null) return null;
+  const s = String(v).replace(/"/g,'').trim();
+  if (!s) return null;
+  const m = s.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+  if (m) return Number(m[1]) + Number(m[2])/60 + (m[3] ? Number(m[3])/3600 : 0);
+  const n = Number(s);
+  return isNaN(n) ? null : n;
+}
+
+function importCars(text){
+  const rows = parseCSV(text);
+  if (!rows.length) throw new Error('文件是空的');
+  const hasHead = /[^\d\s:.\-+]/.test(rows[0].join(''));
+  const header  = hasHead ? rows[0] : null;
+  const body    = hasHead ? rows.slice(1) : rows;
+  if (!body.length) throw new Error('只有表头，没有数据行');
+
+  let iArr = -1, iDep = -1, iNeed = -1;
+  if (header){
+    header.forEach(function(h, i){
+      const t = String(h).toLowerCase();
+      if (iArr < 0 && (t.indexOf('到达')>=0 || t.indexOf('arr')>=0 || t.indexOf('start')>=0 || t.indexOf('进入')>=0)) iArr = i;
+      if (iDep < 0 && (t.indexOf('离开')>=0 || t.indexOf('离场')>=0 || t.indexOf('驶离')>=0 || t.indexOf('dep')>=0 || t.indexOf('end')>=0 || t.indexOf('结束')>=0)) iDep = i;
+      if (iNeed < 0 && (t.indexOf('电量')>=0 || t.indexOf('需求')>=0 || t.indexOf('kwh')>=0 || t.indexOf('energy')>=0 || t.indexOf('度')>=0)) iNeed = i;
+    });
+  }
+  const used = [iArr, iDep, iNeed].filter(function(i){ return i >= 0; });
+  [1,2,3,4].forEach(function(k){
+    if (used.indexOf(k) >= 0) return;
+    if (iArr  < 0){ iArr  = k; used.push(k); return; }
+    if (iDep  < 0){ iDep  = k; used.push(k); return; }
+    if (iNeed < 0){ iNeed = k; }
+  });
+
+  const cars = [];
+  let bad = 0, capped = 0;
+  body.forEach(function(r){
+    const a = parseTime(r[iArr]);
+    const d = parseTime(r[iDep]);
+    const rawNeed = (r[iNeed] === undefined) ? '' : String(r[iNeed]).replace(/[^\d.\-]/g,'');
+    const need = Number(rawNeed);
+    if (a === null || d === null || !rawNeed || isNaN(need) || need <= 0 || d <= a){ bad++; return; }
+    const arr = Math.max(0, Math.min(SLOTS-1, Math.floor(a*4)));
+    const dep = Math.max(arr+1, Math.min(SLOTS, Math.ceil(d*4)));
+    let n = need;
+    const maxCh = (dep - arr) * DT * cfg.stallPower;
+    if (n > maxCh){ n = maxCh; capped++; }
+    cars.push({ id:cars.length, arr:arr, dep:dep, need:Math.round(n*10)/10, arrH:a, depH:d, kind:'import' });
+  });
+  if (!cars.length) throw new Error('没有解析出有效数据行，请对照模板检查列内容');
+  return { cars:cars, bad:bad, capped:capped, total:body.length };
+}
+
+function updateImpStatus(){
+  const el  = document.getElementById('impStatus');
+  const btn = document.getElementById('clearImpBtn');
+  if (state.customCars){
+    el.className = 'status ok';
+    el.textContent = '已导入 ' + state.customCars.length + ' 辆车' + state.impNote +
+                     '　车辆数与平均需求滑块不再生效';
+    btn.style.display = 'block';
+  } else {
+    el.className = 'status';
+    el.textContent = '当前使用：内置随机生成数据' + state.impNote;
+    btn.style.display = 'none';
+  }
+}
+
+function handleFile(e){
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = function(){
+    try {
+      const res = importCars(String(reader.result));
+      state.customCars = res.cars;
+      state.impNote = (res.bad > 0 ? '，跳过 ' + res.bad + ' 行无效数据' : '') +
+                      (res.capped > 0 ? '，' + res.capped + ' 辆车需求超出可充上限已按上限处理' : '');
+      updateImpStatus();
+      run();
+    } catch (err){
+      const el = document.getElementById('impStatus');
+      el.className = 'status';
+      el.textContent = '导入失败：' + err.message;
+    }
+  };
+  reader.readAsText(f, 'utf-8');
+  e.target.value = '';
+}
+
+/* ---------------- 结果导出 ---------------- */
+function download(name, text){
+  const blob = new Blob(['\ufeff' + text], { type:'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+}
+
+function compressSlots(arr){
+  if (!arr || !arr.length) return '';
+  const a = arr.slice().sort(function(x,y){ return x - y; });
+  const parts = [];
+  let st = a[0], prev = a[0];
+  for (let i=1;i<=a.length;i++){
+    if (i < a.length && a[i] === prev + 1){ prev = a[i]; continue; }
+    const endT = (prev + 1 < SLOTS) ? times[prev+1] : '24:00';
+    parts.push(times[st] + '-' + endT);
+    if (i < a.length){ st = a[i]; prev = a[i]; }
+  }
+  return parts.join('; ');
+}
+
+function carSlots(sim){
+  const map = {};
+  sim.work.forEach(function(c){ map[c.id] = []; });
+  sim.assign.forEach(function(ids, s){
+    ids.forEach(function(id){ if (map[id]) map[id].push(s); });
+  });
+  return map;
+}
+
+function downloadTemplate(){
+  download('赛题数据模板.csv', [
+    '车辆编号,到达时间,离开时间,需求电量kWh',
+    '1,08:30,17:30,15',
+    '2,08:50,17:10,22',
+    '3,09:20,18:00,8',
+    '4,13:00,16:30,25',
+    '5,19:00,22:00,18'
+  ].join('\r\n'));
+}
+
+function exportPlan(){
+  const out = ['方案,车辆编号,到达时间,离开时间,需求电量kWh,实际充电kWh,充电时段'];
+  [['green','策略B 碳光协同'], ['cheap','策略A 电价优化'], ['base','即插即充基线']].forEach(function(pair){
+    const sim = state.res[pair[0]];
+    const per = carSlots(sim);
+    sim.work.forEach(function(c){
+      const depT = (c.dep < SLOTS) ? times[c.dep] : '24:00';
+      const charged = Math.round((c.need - c.rem) * 100) / 100;
+      out.push([pair[1], c.id + 1, times[c.arr], depT, c.need.toFixed(1), charged.toFixed(1),
+                compressSlots(per[c.id])].join(','));
+    });
+  });
+  download('调度方案.csv', out.join('\r\n'));
+}
+
+function exportKpi(){
+  const m = state.met;
+  const out = ['指标,即插即充基线,策略A 电价优化,策略B 碳光协同'];
+  out.push(['变压器峰值负荷(kW)', m.base.peak, m.cheap.peak, m.green.peak].join(','));
+  out.push(['总电费(元)', m.base.cost.toFixed(1), m.cheap.cost.toFixed(1), m.green.cost.toFixed(1)].join(','));
+  out.push(['碳排放(kgCO2)', m.base.carbon.toFixed(1), m.cheap.carbon.toFixed(1), m.green.carbon.toFixed(1)].join(','));
+  out.push(['光伏就地消纳率(%)', m.base.pvRate.toFixed(1), m.cheap.pvRate.toFixed(1), m.green.pvRate.toFixed(1)].join(','));
+  out.push(['变压器过载时长(h)', m.base.over.toFixed(2), m.cheap.over.toFixed(2), m.green.over.toFixed(2)].join(','));
+  out.push(['未充满车辆(辆)', m.base.unmetCars, m.cheap.unmetCars, m.green.unmetCars].join(','));
+  out.push(['未满足电量(kWh)', m.base.unmetKwh.toFixed(1), m.cheap.unmetKwh.toFixed(1), m.green.unmetKwh.toFixed(1)].join(','));
+  out.push('');
+  out.push('推荐方案,' + LABEL[recommend()]);
+  download('指标汇总.csv', out.join('\r\n'));
+}
+
+function exportCurve(){
+  const out = ['时刻,电价,电网碳强度,光伏出力kW,基线负荷kW,策略A负荷kW,策略B负荷kW'];
+  for (let s=0;s<SLOTS;s++){
+    out.push([times[s], priceAt(s/4).toFixed(2), carbonAt(s/4).toFixed(2), pvAt(s/4).toFixed(1),
+              state.res.base.load[s].toFixed(1), state.res.cheap.load[s].toFixed(1),
+              state.res.green.load[s].toFixed(1)].join(','));
+  }
+  download('逐时段曲线.csv', out.join('\r\n'));
+}
+
+/* ---------------- 主流程 ---------------- */
+function run(){
+  state.cars = state.customCars ? state.customCars : genCars();
+  state.res  = {
+    base:  simulate('base',  state.cars),
+    cheap: simulate('cheap', state.cars),
+    green: simulate('green', state.cars)
+  };
+  state.met = {
+    base:  evaluate(state.res.base),
+    cheap: evaluate(state.res.cheap),
+    green: evaluate(state.res.green)
+  };
+  renderKPI();
+  renderChart();
+  onTime(Number(document.getElementById('timeSlider').value));
+}
+
+function boot(){
+  buildPanel();
+  document.getElementById('runBtn').addEventListener('click', run);
+  document.getElementById('pref').addEventListener('change', e=>{ cfg.pref = e.target.value; renderKPI(); });
+  document.getElementById('timeSlider').addEventListener('input', e=>{ onTime(Number(e.target.value)); });
+  document.getElementById('viewMode').addEventListener('change', ()=>{ onTime(Number(document.getElementById('timeSlider').value)); });
+  document.getElementById('playBtn').addEventListener('click', togglePlay);
+  document.getElementById('tplBtn').addEventListener('click', downloadTemplate);
+  document.getElementById('impBtn').addEventListener('click', function(){
+    document.getElementById('fileInput').click();
+  });
+  document.getElementById('fileInput').addEventListener('change', handleFile);
+  document.getElementById('clearImpBtn').addEventListener('click', function(){
+    state.customCars = null;
+    state.impNote = '';
+    updateImpStatus();
+    run();
+  });
+  document.getElementById('expPlan').addEventListener('click', exportPlan);
+  document.getElementById('expKpi').addEventListener('click', exportKpi);
+  document.getElementById('expCurve').addEventListener('click', exportCurve);
+  updateImpStatus();
+  document.getElementById('timeSlider').value = 48;
+  window.addEventListener('resize', ()=>{ if (chart) chart.resize(); });
+  run();
+}
+
+/* 图表库加载：本地 echarts.min.js 优先 → 多个 CDN 镜像依次兜底。
+   全部失败也不影响使用：指标对比表、结论、时间回放都是原生网页元素。 */
+const MIRRORS = [
+  'https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js',
+  'https://cdn.bootcdn.net/ajax/libs/echarts/5.5.1/echarts.min.js',
+  'https://registry.npmmirror.com/echarts/5.5.1/files/dist/echarts.min.js'
+];
+let mirrorIndex = 0;
+function loadEcharts(){
+  if (window.echarts){ boot(); return; }
+  if (mirrorIndex >= MIRRORS.length){
+    document.getElementById('chart').innerHTML =
+      '<div class="err">曲线图未显示：图表库没能加载。指标对比与结论不受影响。<br>' +
+      '修复方法：联网打开 <b>https://cdn.bootcdn.net/ajax/libs/echarts/5.5.1/echarts.min.js</b> ' +
+      '另存为 <b>echarts.min.js</b> 放到本文件同一目录，然后刷新。<br>' +
+      '（比赛前一定要做这一步，赛场网络不可靠。）</div>';
+    boot();
+    return;
+  }
+  const s = document.createElement('script');
+  s.src = MIRRORS[mirrorIndex++];
+  s.onload = boot;
+  s.onerror = loadEcharts;
+  document.head.appendChild(s);
+}
+loadEcharts();
+</script>
+</body>
+</html>
